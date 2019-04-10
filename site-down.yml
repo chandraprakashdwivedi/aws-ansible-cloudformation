@@ -1,6 +1,12 @@
-- hosts: site
+- hosts: localhost
   connection: local
   gather_facts: false
+  vars_files:
+     - group_vars/default/main.yml
+     - group_vars/site/main.yml
+     - group_vars/vpc/main.yml
+  
   roles:
+  #  - { role: common/down, down_items: "{{ network_down }}" }
     - { role: common/down, down_items: "{{ site_down }}" }
-    - { role: common/r53/record-set-down, record_set_items: "{{ record_set_private }}" }
+  #  - { role: common/r53/record-set-down, record_set_items: "{{ record_set_private }}" }
