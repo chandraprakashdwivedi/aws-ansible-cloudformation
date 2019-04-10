@@ -48,31 +48,22 @@ route_table_private:
     gateway_type: "nat"
     subnet_public_stack_name: "{{ subnet_public[1].stack_name }}"
     vpc_stack_name: "{{ vpc.stack_name }}"
-  - stack_name: cf-route-table-private-3
-    destination_cidr_block: 0.0.0.0/0
-    gateway_type: "nat"
-    subnet_public_stack_name: "{{ subnet_public[2].stack_name }}"
-    vpc_stack_name: "{{ vpc.stack_name }}"
+
 
 subnet_private:
   - stack_name: "{{ subnet_private_1_stack_name }}"
-    availability_zone: eu-west-1a
+    availability_zone: ap-south-1a
     cidr_block: 10.0.128.0/24
     network_acl_stack_name: "{{ network_acl.stack_name }}"
     route_table_stack_name: "{{ route_table_private[0].stack_name }}"
     vpc_stack_name: "{{ vpc.stack_name }}"
   - stack_name: "{{ subnet_private_2_stack_name }}"
-    availability_zone: eu-west-1b
+    availability_zone: ap-south-1b
     cidr_block: 10.0.129.0/24
     network_acl_stack_name: "{{ network_acl.stack_name }}"
     route_table_stack_name: "{{ route_table_private[1].stack_name }}"
     vpc_stack_name: "{{ vpc.stack_name }}"
-  - stack_name: "{{ subnet_private_3_stack_name }}"
-    availability_zone: eu-west-1c
-    cidr_block: 10.0.130.0/24
-    network_acl_stack_name: "{{ network_acl.stack_name }}"
-    route_table_stack_name: "{{ route_table_private[2].stack_name }}"
-    vpc_stack_name: "{{ vpc.stack_name }}"
+
 
 hosted_zone_private:
   - stack_name: "{{ hosted_zone_private_stack_name }}"
@@ -81,15 +72,12 @@ hosted_zone_private:
       - stack_name: "{{ vpc.stack_name }}"
         region: "{{ region }}"
 
-basic_network_down:
+network_down:
   - "{{ hosted_zone_private[0].stack_name }}"
-  - "{{ subnet_private[2].stack_name }}"
   - "{{ subnet_private[1].stack_name }}"
   - "{{ subnet_private[0].stack_name }}"
-  - "{{ route_table_private[2].stack_name }}"
   - "{{ route_table_private[1].stack_name }}"
   - "{{ route_table_private[0].stack_name }}"
-  - "{{ subnet_public[2].stack_name }}"
   - "{{ subnet_public[1].stack_name }}"
   - "{{ subnet_public[0].stack_name }}"
   - "{{ route_table_public[0].stack_name }}"
