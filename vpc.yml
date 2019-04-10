@@ -1,6 +1,10 @@
-- hosts: basic-network
+- hosts: localhost
   connection: local
   gather_facts: false
+  vars_files:
+     - group_vars/default/main.yml
+     - group_vars/vpc/main.yml
+  
   roles:
     - common/ec2/vpc
     - common/ec2/network-acl
@@ -8,4 +12,4 @@
     - { role: common/ec2/subnet, subnet_items: "{{ subnet_public }}" }
     - { role: common/ec2/route-table, route_table_items: "{{ route_table_private }}" }
     - { role: common/ec2/subnet, subnet_items: "{{ subnet_private }}" }
-    - { role: common/r53/hosted-zone, hosted_zone_items: "{{ hosted_zone_private }}" }
+#    - { role: common/r53/hosted-zone, hosted_zone_items: "{{ hosted_zone_private }}" }
