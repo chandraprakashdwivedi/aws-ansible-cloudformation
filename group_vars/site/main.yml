@@ -1,85 +1,202 @@
-vpc:
-  stack_name: "{{ vpc_stack_name }}"
-  cidr_block: 10.0.0.0/16
-  enable_dns_hostnames: true
-  enable_dns_support: true
-  instance_tenancy: default
-
-network_acl:
-  stack_name: cf-network-acl
-  cidr_block_egress: 0.0.0.0/0
-  cidr_block_ingress: 0.0.0.0/0
-  protocol_egress: -1
-  protocol_ingress: -1
-  rule_action_egress: allow
-  rule_action_ingress: allow
-  rule_number_egress: 100
-  rule_number_ingress: 100
-  vpc_stack_name: "{{ vpc.stack_name }}"
-
-route_table_public:
-  - stack_name: cf-route-table-public-1
-    destination_cidr_block: 0.0.0.0/0
-    gateway_type: "internet"
-    vpc_stack_name: "{{ vpc.stack_name }}"
-
-subnet_public:
-  - stack_name: "{{ subnet_public_1_stack_name }}"
-    availability_zone: ap-south-1a
-    cidr_block: 10.0.0.0/24
-    network_acl_stack_name: "{{ network_acl.stack_name }}"
-    route_table_stack_name: "{{ route_table_public[0].stack_name }}"
-    vpc_stack_name: "{{ vpc.stack_name }}"
-  - stack_name: "{{ subnet_public_2_stack_name }}"
-    availability_zone: ap-south-1b
-    cidr_block: 10.0.1.0/24
-    network_acl_stack_name: "{{ network_acl.stack_name }}"
-    route_table_stack_name: "{{ route_table_public[0].stack_name }}"
-    vpc_stack_name: "{{ vpc.stack_name }}"
-
-route_table_private:
-  - stack_name: cf-route-table-private-1
-    destination_cidr_block: 0.0.0.0/0
-    gateway_type: "nat"
-    subnet_public_stack_name: "{{ subnet_public[0].stack_name }}"
-    vpc_stack_name: "{{ vpc.stack_name }}"
-  - stack_name: cf-route-table-private-2
-    destination_cidr_block: 0.0.0.0/0
-    gateway_type: "nat"
-    subnet_public_stack_name: "{{ subnet_public[1].stack_name }}"
-    vpc_stack_name: "{{ vpc.stack_name }}"
+#ssl_certificate_id: replace_with_ssl_certificate_arn
+ami_image_id: ami-05de310b944d67cde
 
 
-subnet_private:
-  - stack_name: "{{ subnet_private_1_stack_name }}"
-    availability_zone: ap-south-1a
-    cidr_block: 10.0.128.0/24
-    network_acl_stack_name: "{{ network_acl.stack_name }}"
-    route_table_stack_name: "{{ route_table_private[0].stack_name }}"
-    vpc_stack_name: "{{ vpc.stack_name }}"
-  - stack_name: "{{ subnet_private_2_stack_name }}"
-    availability_zone: ap-south-1b
-    cidr_block: 10.0.129.0/24
-    network_acl_stack_name: "{{ network_acl.stack_name }}"
-    route_table_stack_name: "{{ route_table_private[1].stack_name }}"
-    vpc_stack_name: "{{ vpc.stack_name }}"
+security_group_load_balancer_web:
+  - stack_name: cf-security-group-load-balancer-web
+    security_group_ingress:
+      - cidr_ip: 0.0.0.0/0
+        from_port: 80
+        ip_protocol: tcp
+        to_port: 80
+      - cidr_ip: 0.0.0.0/0
+        from_port: 443
+        ip_protocol: "tcp"
+        to_port: 443
+    vpc_stack_name: "{{ vpc_stack_name }}"
 
+load_balancer_web:
+  - stack_name: cf-load-balancer-web 
+    cross_zone: true
+    listeners:
+      - instance_port: 80
+        instance_protocol: "HTTP"
+        load_balancer_port: 80
+        protocol: "HTTP"
+      #- instance_port: 80
+      #  instance_protocol: "HTTP"
+      #  load_balancer_port: 443
+      #  protocol: "HTTPS"
+       # ssl_certificate_id: "{{ ssl_certificate_id }}"
+    name: "load-balancer-web"
+    scheme: "internet-facing"
+    security_group_stack_names:
+      - "{{ security_group_load_balancer_web[0].stack_name }}"
+    subnet_stack_names:
+      - "{{ subnet_public_1_stack_name }}"
+      - "{{ subnet_public_2_stack_name }}"
+    
 
-hosted_zone_private:
-  - stack_name: "{{ hosted_zone_private_stack_name }}"
-    name: "{{ hosted_zone_private_name }}"
-    vpcs:
-      - stack_name: "{{ vpc.stack_name }}"
-        region: "{{ region }}"
+security_group_ec2_instance_mongo:
+  - stack_name: cf-security-group-ec2-instance-mongo
+    security_group_ingress:
+      - from_port: 2713
+        ip_protocol: tcp
+        security_group_self_referencing: true
+        to_port: 2713
+      - cidr_ip: 0.0.0.0/0
+        from_port: 22
+        ip_protocol: "tcp"
+        to_port: 22
+    vpc_stack_name: "{{ vpc_stack_name }}"
 
-network_down:
-  - "{{ hosted_zone_private[0].stack_name }}"
-  - "{{ subnet_private[1].stack_name }}"
-  - "{{ subnet_private[0].stack_name }}"
-  - "{{ route_table_private[1].stack_name }}"
-  - "{{ route_table_private[0].stack_name }}"
-  - "{{ subnet_public[1].stack_name }}"
-  - "{{ subnet_public[0].stack_name }}"
-  - "{{ route_table_public[0].stack_name }}"
-  - "{{ network_acl.stack_name }}"
-  - "{{ vpc.stack_name }}"
+role_launch_configuration:
+  - stack_name: cf-role-launch-configuration
+    service: "ec2.amazonaws.com"
+    policies:
+      - policy_name: "RoleLaunchConfigurationEcs"
+        actions:
+          - "ecs:DeregisterContainerInstance"
+          - "ecs:DiscoverPollEndpoint"
+          - "ecs:Poll"
+          - "ecs:RegisterContainerInstance"
+          - "ecs:StartTelemetrySession"
+          - "ecs:Submit*"
+        resource: "*"
+      - policy_name: "RoleLaunchConfigurationLogs"
+        actions:
+          - "logs:CreateLogStream"
+          - "logs:PutLogEvents"
+        resource: "arn:aws:logs:*:*:*"
+      - policy_name: "RoleLaunchConfigurationEcr"
+        actions:
+          - "ecr:GetAuthorizationToken"
+          - "ecr:BatchCheckLayerAvailability"
+          - "ecr:GetDownloadUrlForLayer"
+          - "ecr:BatchGetImage"
+        resource: "*"
+      - policy_name: "RoleLaunchConfigurationRoute53"
+        actions:
+          - "route53:ChangeResourceRecordSets"
+          - "route53:GetHostedZone"
+          - "route53:ListResourceRecordSets"
+        resource: "arn:aws:route53:::*"
+      - policy_name: "RoleLaunchConfigurationS3"
+        actions:
+          - "s3:GetObject"
+        resource: "arn:aws:s3:::*"
+
+instance_profile_launch_configuration:
+  - stack_name: cf-instance-profile-launch-configuration
+    role_stack_names:
+      - "{{ role_launch_configuration[0].stack_name }}"
+
+role_ecs_service:
+  - stack_name: cf-role-ecs-service
+    service: "ecs.amazonaws.com"
+    policies:
+      - policy_name: "RoleEcsService"
+        actions:
+          - "ec2:AuthorizeSecurityGroupIngress"
+          - "ec2:Describe*"
+          - "elasticloadbalancing:DeregisterInstancesFromLoadBalancer"
+          - "elasticloadbalancing:Describe*"
+          - "elasticloadbalancing:RegisterInstancesWithLoadBalancer"
+        resource: "*"
+
+log_group:
+  - stack_name: cf-log-group 
+    log_group_name: "cf-log"
+    retention_in_days: 1
+
+cluster_launch_configuration_mongo:
+  - stack_name: cf-cluster 
+    cluster_name: "docker-cluster"
+
+launch_configuration_auto_scaling_group_mongo:
+  - stack_name: cf-launch-configuration-auto-scaling-group
+    lc_associate_public_ip_address: true
+    lc_cluster_stack_name: "{{ cluster_launch_configuration_mongo[0].stack_name }}"
+    lc_iam_instance_profile_stack_name: "{{ instance_profile_launch_configuration[0].stack_name }}"
+    lc_image_id: "{{ ami_image_id }}"
+    lc_instance_type: "t2.micro"
+    lc_key_name: "{{ your_key_name }}"
+    lc_security_group_stack_names:
+      - "{{ security_group_ec2_instance_mongo[0].stack_name }}"
+    lc_user_data_aws_cli: true
+    #lc_user_data_hosted_zone_stack_name: "{{ hosted_zone_private_stack_name }}"
+    asg_desired_capacity: 1
+    asg_health_check_type: "EC2"
+    asg_max_size: 2
+    asg_min_size: 1
+    asg_vpc_zone_identifiers:
+      - "{{ subnet_public_1_stack_name }}"
+      - "{{ subnet_public_2_stack_name }}"
+
+task_definition_service_mongo:
+  - stack_name: cf-task-definition-service-mongo
+    container_definitions:
+      - name: "nginx"
+       #command: [ "ping", "127.0.0.1", "-q" ]
+        cpu: 256
+        essential: true
+        image: "nginx"
+       #links:          #Use if you want to link this container with any other container
+          #- php
+        log_configuration:
+          log_driver: "awslogs"
+          options:
+            awslogs_region: "{{ region }}"
+            awslogs_group_name: "cf-log"
+            awslogs_stream_prefix: "nginx"
+        memory: 128
+        port_mappings:
+          - container_port: 80
+            host_port: 80
+       #volumes_from:
+          #- source_container: src
+           # read_only: false
+    deployment_configuration:
+      minimum_healthy_percent: 50
+    family: "web"
+    cluster_stack_name: "{{ cluster_launch_configuration_mongo[0].stack_name }}"
+    desired_count: 1
+    load_balancers:
+      - container_name: "nginx"
+        container_port: 80
+        load_balancer_name: "{{ load_balancer_web[0].name }}"
+    role_ecs_service_stack_name: "{{ role_ecs_service[0].stack_name }}"
+    
+record_set:
+  - stack_name: cf-record-set-public 
+    hosted_zone_name: "{{ hosted_zone_public_name }}"
+    name: "web.{{ hosted_zone_public_name }}"
+    resource_records:
+      - "{{ load_balancer_web[0].stack_name }}"
+    ttl: 60
+    type: CNAME
+
+record_set_private:
+  - hosted_zone_name: "{{ hosted_zone_private_name }}"
+    name: mongo-rs1
+    type: A
+  - hosted_zone_name: "{{ hosted_zone_private_name }}"
+    name: mongo-rs2
+    type: A
+  - hosted_zone_name: "{{ hosted_zone_private_name }}"
+    name: mongo-rs3
+    type: A
+
+site_down:
+ # - "{{ record_set[0].stack_name }}"
+  - "{{ task_definition_service_mongo[0].stack_name }}"
+  - "{{ launch_configuration_auto_scaling_group_mongo[0].stack_name }}"
+ # - "{{ cluster_launch_configuration_mongo[0].stack_name }}"
+ # - "{{ log_group[0].stack_name }}"
+ # - "{{ role_ecs_service[0].stack_name }}"
+ # - "{{ instance_profile_launch_configuration[0].stack_name }}"
+ # - "{{ role_launch_configuration[0].stack_name }}"
+ # - "{{ security_group_ec2_instance_mongo[0].stack_name }}"
+  - "{{ load_balancer_web[0].stack_name }}"
+ # - "{{ security_group_load_balancer_web[0].stack_name }}"
+
