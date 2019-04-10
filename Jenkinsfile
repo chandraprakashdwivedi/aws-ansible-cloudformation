@@ -26,9 +26,9 @@ pipeline {
             steps {
                 echo 'Cloudfromation Started'
                // sh 'ansible-playbook s3.yml -e "myBucketName=$BUCKET  myRegion=$REGION" '
-              //sh ' ansible-playbook vpc.yml '
-              // sh ' ansible-playbook site.yml '
-              sh ' ansible-playbook site-down.yml '
+              sh ' ansible-playbook vpc.yml '  //to deploy vpc network
+              // sh ' ansible-playbook site.yml '  //to create ecs web hosting
+              //sh ' ansible-playbook site-down.yml ' //to delete all ecs web hosting
             }
         }
         /*stage('s3 Bucket creation using Terraform') {
@@ -61,9 +61,9 @@ pipeline {
     always {
       mail (body: "This is the Build ID: ${BUILD_ID} \n Thanks& Regards #cp  ",
             from: "${mailNotifier}",
-            replyTo: 'donotreply@johndeere.com',
+            replyTo: 'donotreply@gmail.com',
             subject: "${appname} ${JOB_NAME}",
-            to: 'dwivedichandra@johndeere.com')
+            to: 'dwivedichandra@gmail.com')
 
    }
  }
